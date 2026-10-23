@@ -9,9 +9,21 @@ import SwiftUI
 
 @main
 struct FlexMenuApp: App {
+    @State private var panelController = MenuPanelController()
+    @State private var previewModel = MenuModel()
+
     var body: some Scene {
         WindowGroup {
-            ContentView()
+            VStack {
+                ContentView(model: previewModel)
+
+                Button("5 秒后测试") {
+                    panelController.schedule()
+                }
+            }
+            .onAppear {
+                previewModel.state = .normal
+            }
         }
     }
 }
