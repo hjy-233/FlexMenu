@@ -1,5 +1,5 @@
 //
-//  MenuDragView.swift
+//  MenuPanel.swift
 //  FlexMenu
 //
 //  Created by hjy_666 on 2026/10/18.
@@ -13,7 +13,7 @@ final class MenuDragView: NSView {
     var onDragging: ((NSPasteboard) -> Void)?
     var onPointerMoved: ((NSPoint) -> Void)?
     var onSelect: (() -> Bool)?
-    
+
     private var state: MenuState = .waiting
     private var mouseTrackingArea: NSTrackingArea?
 
@@ -61,7 +61,7 @@ final class MenuDragView: NSView {
         onPointerMoved?(location)
     }
 
-    override func mouseDown(with event: NSEvent) {
+    override func mouseDown(with _: NSEvent) {
         guard state == .normal else { return }
         _ = onSelect?()
     }
@@ -74,16 +74,8 @@ final class MenuDragView: NSView {
         state = .dragging
 
         let pasteboard = sender.draggingPasteboard
-
-        let urls = pasteboard.readObjects(
-            forClasses: [NSURL.self],
-            options: [.urlReadingFileURLsOnly: true]
-        )
-
-        let string = pasteboard.string(forType: .string)
-        
         onDragging?(pasteboard)
-        
+
         let location = convert(sender.draggingLocation, from: nil)
         onPointerMoved?(location)
 
@@ -91,7 +83,7 @@ final class MenuDragView: NSView {
     }
 
     override func prepareForDragOperation(
-        _ sender: NSDraggingInfo
+        _: NSDraggingInfo
     ) -> Bool {
         true
     }
@@ -105,7 +97,7 @@ final class MenuDragView: NSView {
         return .copy
     }
 
-    override func performDragOperation(_ sender: NSDraggingInfo) -> Bool {
+    override func performDragOperation(_: NSDraggingInfo) -> Bool {
         guard state == .dragging else { return false }
         return onSelect?() ?? false
     }
@@ -160,36 +152,59 @@ final class MenuPanelController {
             )
         )
 
-        // 绑定状态回调
+        configure(dragView, size: size)
+
+        let hostingView = PassthroughHostingView(
+            rootView: ContentView(model: model)
+        )
+
+        hostingView.frame = dragView.bounds
+        hostingView.autoresizingMask = [.width, .height]
+
+        dragView.addSubview(hostingView)
+
+        panel.contentView = dragView
+
+        self.panel?.close()
+        self.panel = panel
+
+        panel.orderFrontRegardless()
+    }
+
+    private func configure(_ dragView: MenuDragView, size: CGFloat) {
         dragView.onNormal = { [weak self] in
             self?.model.state = .normal
         }
 
-        dragView.onDragging = { [weak self] pasteboard in
+        dragView.onDragging = { [weak self] _ in
             self?.model.state = .dragging
         }
-        
+
         dragView.onPointerMoved = { [weak self] location in
             guard let self else { return }
 
             let center = Double(size) / 2
 
-            let dx = Double(location.x) - center
-            let dy = center - Double(location.y)
+            let deltaX = Double(location.x) - center
+            let deltaY = center - Double(location.y)
 
-            let distance = hypot(dx, dy)
+            let distance = hypot(deltaX, deltaY)
 
             if distance < 45 || distance > 110 {
                 self.model.selectedIndex = -1
                 return
             }
 
-            let degrees = atan2(dy, dx) * 180 / .pi
+            let degrees = atan2(deltaY, deltaX) * 180 / .pi
 
             let adjusted = (degrees + 450)
                 .truncatingRemainder(dividingBy: 360)
 
-            let count = 5
+            let count = self.model.menuItems.count
+            guard count > 0 else {
+                self.model.selectedIndex = -1
+                return
+            }
 
             self.model.selectedIndex = Int(
                 adjusted / (360.0 / Double(count))
@@ -204,33 +219,15 @@ final class MenuPanelController {
             }
             guard let self else { return false }
             let index = self.model.selectedIndex
-            guard (0..<5).contains(index) else { return false }
-            print("执行：\(index)")
+            guard self.model.menuItems.indices.contains(index) else { return false }
+            print("执行：\(self.model.menuItems[index].id)")
             return true
         }
-
-        let hostingView = PassthroughHostingView(
-            rootView: ContentView(model: model)
-        )
-
-        hostingView.frame = dragView.bounds
-        hostingView.autoresizingMask = [.width, .height]
-
-        dragView.addSubview(hostingView)
-
-        panel.contentView = dragView
-        
-        self.panel?.close()
-        self.panel = panel
-
-        panel.orderFrontRegardless()
-
-
     }
 }
 
 final class PassthroughHostingView<Content: View>: NSHostingView<Content> {
-    override func hitTest(_ point: NSPoint) -> NSView? {
+    override func hitTest(_: NSPoint) -> NSView? {
         nil
     }
 }
