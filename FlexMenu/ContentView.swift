@@ -30,16 +30,18 @@ struct ContentView: View {
                         .rotationEffect(.degrees(-90))
                 }
 
-                ForEach(model.menuItems.indices, id: \.self) { index in
-                    Rectangle()
-                        .fill(.black)
-                        .frame(width: 8, height: 50)
-                        .offset(y: -80)
-                        .frame(width: 200, height: 200)
-                        .rotationEffect(
-                            .degrees(Double(index) * 360.0 / Double(count))
-                        )
-                        .blendMode(.destinationOut)
+                if count > 1 {
+                    ForEach(model.menuItems.indices, id: \.self) { index in
+                        Rectangle()
+                            .fill(.black)
+                            .frame(width: 8, height: 50)
+                            .offset(y: -80)
+                            .frame(width: 200, height: 200)
+                            .rotationEffect(
+                                .degrees(Double(index) * 360.0 / Double(count))
+                            )
+                            .blendMode(.destinationOut)
+                    }
                 }
 
                 ForEach(model.menuItems.indices, id: \.self) { index in
