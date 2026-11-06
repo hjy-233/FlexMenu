@@ -23,11 +23,7 @@ struct MenuItem: Identifiable {
 final class MenuModel {
     var state: MenuState = .waiting
     var selectedIndex: Int = -1
-    var menuItems: [MenuItem] = [
-        MenuItem(id: "terminal", title: "终端"),
-        MenuItem(id: "copy", title: "复制"),
-        MenuItem(id: "convert", title: "转换"),
-        MenuItem(id: "compress", title: "压缩"),
-        MenuItem(id: "more", title: "更多")
-    ]
+    var menuItems: [MenuItem] = []
+    var menuDefinitions: [MenuItemDefinition] = []
+    var context: MenuContext?
 }

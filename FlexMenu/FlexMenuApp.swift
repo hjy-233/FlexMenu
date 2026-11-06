@@ -7,7 +7,6 @@
 
 import SwiftUI
 
-@main
 struct FlexMenuApp: App {
     @State private var panelController = MenuPanelController()
     @State private var previewModel = MenuModel()
@@ -22,6 +21,20 @@ struct FlexMenuApp: App {
                 }
             }
             .onAppear {
+                if let configuration = try? ConfigurationStore.loadSnapshot() {
+                    let context = MenuContext.normal()
+                    Task.detached {
+                        let items = try? MenuScripts.resolve(
+                            configuration: configuration,
+                            context: context
+                        )
+                        await MainActor.run {
+                            previewModel.menuItems = items?.map {
+                                MenuItem(id: $0.id, title: $0.title)
+                            } ?? []
+                        }
+                    }
+                }
                 previewModel.state = .normal
             }
         }
