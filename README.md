@@ -1,35 +1,26 @@
 # FlexMenu
 
-macOS 径向菜单。菜单内容由 Shell 脚本按上下文生成，动作由独立脚本执行。
+macOS 上的上下文径向菜单：按快捷键、移动鼠标选方向，再点击；拖动内容时松开即可执行。菜单和动作由 Shell 脚本定义，Esc 可取消。
 
-## 命令行入口
+## 安装
 
-构建后，可执行文件位于 `FlexMenu.app/Contents/MacOS/flexmenu`。将该目录加入 `PATH`，即可在终端直接使用 `flexmenu`。例如 App 安装在 `/Applications` 时：
+在 Apple Silicon Mac 上安装最新正式版：
 
 ```sh
-export PATH="/Applications/FlexMenu.app/Contents/MacOS:$PATH"
+installer=$(mktemp) && curl -fsSLo "$installer" https://raw.githubusercontent.com/hjy-233/FlexMenu/main/install.sh && zsh "$installer"
 ```
 
-命令：
+安装开发版或指定版本时，在命令末尾分别添加 `--ref dev` 或 `--ref v1.2.3`。安装器只下载已构建的 Release；正式版需要已公开发布，开发版需要该提交的 CI 构建完成。
 
-```text
-flexmenu config init                 创建可编辑的初始配置，不覆盖现有文件
-flexmenu config path                 显示 flexmenurc 路径
-flexmenu config check [路径]          执行并校验配置及菜单脚本路径，不更新运行快照
-flexmenu service start               加载配置并启动常驻服务
-flexmenu service restart             重新加载配置并重启服务
-flexmenu service stop                停止服务
-flexmenu service status              查看服务状态
-flexmenu menu                        呼出菜单
-flexmenu run <ID> -- [文件路径...]     按当前上下文生成菜单并执行其中的动作
-flexmenu --help                      查看帮助
+App 会安装到 `~/Applications/FlexMenu.app`，`flexmenu` 命令会链接到 `~/.local/bin`。若终端找不到命令，请把该目录加入 `PATH`：
+
+```sh
+export PATH="$HOME/.local/bin:$PATH"
 ```
 
-`--` 表示选项结束；其后的每个文件路径会作为独立参数传给动作脚本，路径中的空格和以 `-` 开头的名称不会被拼入 Shell 命令。
+## 配置
 
-## 配置脚本
-
-`flexmenurc` 只在 `service start` 和 `service restart` 时执行。FlexMenu 使用 zsh 加载它，并提供 `flexmenu` Shell 函数，因此脚本内可直接写：
+首次安装会在 `~/.config/flexmenu` 创建示例配置。`flexmenurc` 只在服务启动或重启时执行，例如：
 
 ```sh
 flexmenu config shortcut --key space --modifiers command,option
@@ -37,29 +28,26 @@ flexmenu config menu add --script menus/normal.sh
 flexmenu config menu add --script menus/dragging.sh
 ```
 
-快捷键目前支持 `space` 和字母 `a` 到 `z`；修饰键支持 `command`、`option`、`control`、`shift`，用逗号分隔。菜单脚本路径相对于 `flexmenurc` 所在目录解析，也可以使用绝对路径。
-
-每次呼出菜单时，FlexMenu 把上下文 JSON 写入菜单脚本的标准输入，拖动的文件路径作为独立参数传入。菜单脚本从标准输出返回一个 JSON 对象：
+菜单脚本向标准输出返回 JSON，菜单项的 `action` 指向动作脚本：
 
 ```json
-{
-  "mode": "normal",
-  "items": [
-    { "id": "terminal", "title": "终端", "action": "actions/terminal.sh" }
-  ]
-}
+{"mode":"normal","items":[{"id":"terminal","title":"终端","action":"actions/terminal.sh"}]}
 ```
 
-`mode` 可省略；填写时须为 `normal` 或 `dragging`，与当前模式不一致则跳过该脚本。`items` 可以为空数组。FlexMenu 按登记顺序执行脚本，使用第一个匹配模式且返回非空 `items` 的菜单。菜单项的 `id`、`title`、`action` 必填，`id` 在同一菜单内不能重复。`action` 路径同样相对于 `flexmenurc` 所在目录解析。脚本输出必须是 JSON；调试信息请写到标准错误。菜单生成在后台进行，单个脚本限时 3 秒。
+`mode` 可省略；可填 `normal` 或 `dragging`。脚本路径相对于 `~/.config/flexmenu` 解析。菜单脚本和动作脚本都从标准输入接收上下文 JSON，拖动文件路径作为独立参数传入。上下文字段为 `mode`、`frontmostBundleID`、`filePaths`、`text`、`url`。示例脚本由 `config init` 创建。
 
-例如 `menus/dragging.sh` 可用 `(( $# == 0 ))` 判断是否拖入文件；有文件时返回 `{"mode":"dragging","items":[{"id":"reveal","title":"在 Finder 中定位","action":"actions/reveal.sh"}]}`。对应的 `reveal.sh` 可逐个执行 `open -R -- "$file"`。`config init` 会创建这两个示例脚本。
+## 常用命令
 
-动作脚本只需执行动作，例如 `actions/terminal.sh` 可以写成 `#!/bin/zsh` 加 `open -a Terminal`。选中时，FlexMenu 把同一份上下文 JSON 写入动作脚本的标准输入，拖动文件路径作为独立命令行参数传入。动作脚本限时 60 秒。
+```text
+flexmenu config init            创建缺失的示例配置
+flexmenu config path            显示配置路径
+flexmenu config check           校验配置与菜单脚本
+flexmenu service start          启动服务
+flexmenu service restart        重新加载 flexmenurc
+flexmenu service stop|status    停止服务或查看状态
+flexmenu menu                   呼出菜单
+flexmenu run <ID> -- [文件...]   从命令行执行菜单动作
+flexmenu --help                 查看完整用法
+```
 
-`flexmenu run <ID> -- [文件路径...]` 会根据传入路径构造上下文、重新运行菜单脚本，再查找 ID。没有路径时使用 `normal` 模式，有路径时使用 `dragging` 模式。通过 `run` 调用时，`frontmostBundleID` 为空。配置输出只允许 `flexmenu config ...` 产生的 JSON 指令，其他调试信息请写到标准错误。
-
-上下文 JSON 字段：`mode`、`frontmostBundleID`、`filePaths`、`text`、`url`。没有值的字段为 `null`，文件列表没有内容时为 `[]`。
-
-运行时配置快照保存在用户的 Application Support 目录。修改 `flexmenurc` 后需运行 `flexmenu service restart`；修改菜单或动作脚本后，下次使用即可生效。`config check` 仅检查配置和菜单脚本路径；菜单 JSON 会在菜单呼出时校验。
-
-App Sandbox 已关闭。需要访问受 macOS 隐私保护的内容时，仍须由系统授予相应权限。
+CI 在 `dev`、`main` 和发往 `main` 的 PR 上检查构建；`dev` 提交通过后发布开发版，从 `main` 推送 `vMAJOR.MINOR.PATCH` tag 后创建正式版草稿。
