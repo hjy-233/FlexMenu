@@ -96,7 +96,8 @@ enum FlexMenuCLI {
             let url = rest.first.map { URL(fileURLWithPath: $0) }
                 ?? ConfigurationStore.scriptURL
             let configuration = try ConfigurationLoader.load(at: url)
-            print("配置有效：\(configuration.menuScripts.count) 个菜单脚本")
+            try MenuScripts.check(configuration: configuration, sampleFile: url.path)
+            print("配置与菜单输出有效：\(configuration.menuScripts.count) 个菜单脚本")
         case "shortcut": try emitShortcut(rest)
         case "menu": try emitMenu(rest)
         default: throw usage("未知 config 命令：\(command)")
