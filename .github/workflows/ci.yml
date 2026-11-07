@@ -1,0 +1,148 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - dev
+      - main
+    tags:
+      - 'v*'
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install code quality tools
+        run: brew install swiftlint swiftformat
+
+      - name: Lint
+        run: swiftlint lint --quiet --strict FlexMenu
+
+      - name: Check formatting
+        run: swiftformat --lint FlexMenu --swiftversion 5.0
+
+      - name: Check installer syntax
+        run: zsh -n install.sh
+
+      - name: Build
+        run: |
+          xcodebuild -project FlexMenu.xcodeproj \
+            -scheme FlexMenu \
+            -configuration Release \
+            -destination 'platform=macOS,arch=arm64' \
+            -derivedDataPath "$RUNNER_TEMP/FlexMenu-Build" \
+            CODE_SIGNING_ALLOWED=NO \
+            -quiet build
+
+  package-release:
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/dev' || startsWith(github.ref, 'refs/tags/v'))
+    needs: check
+    runs-on: macos-15
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Select release version
+        run: |
+          if [[ "$GITHUB_REF_TYPE" == tag ]]; then
+            if [[ ! "$GITHUB_REF_NAME" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+              echo 'Release tags must use vMAJOR.MINOR.PATCH.' >&2
+              exit 1
+            fi
+            git fetch origin main
+            if ! git merge-base --is-ancestor HEAD origin/main; then
+              echo 'Release tag must point to a commit on main.' >&2
+              exit 1
+            fi
+            echo "RELEASE_TAG=$GITHUB_REF_NAME" >> "$GITHUB_ENV"
+          else
+            echo "RELEASE_TAG=dev-$GITHUB_SHA" >> "$GITHUB_ENV"
+          fi
+
+      - name: Build release candidate
+        run: |
+          version_setting=()
+          if [[ "$GITHUB_REF_TYPE" == tag ]]; then
+            version_setting=("MARKETING_VERSION=${GITHUB_REF_NAME#v}")
+          fi
+          xcodebuild -project FlexMenu.xcodeproj \
+            -scheme FlexMenu \
+            -configuration Release \
+            -destination 'platform=macOS,arch=arm64' \
+            -derivedDataPath "$RUNNER_TEMP/FlexMenu-Release" \
+            "${version_setting[@]}" \
+            CURRENT_PROJECT_VERSION="$GITHUB_RUN_NUMBER" \
+            CODE_SIGNING_ALLOWED=NO \
+            -quiet build
+
+      - name: Import signing identity
+        env:
+          SIGNING_P12_BASE64: ${{ secrets.FLEXMENU_SIGNING_P12_BASE64 }}
+          SIGNING_P12_PASSWORD: ${{ secrets.FLEXMENU_SIGNING_P12_PASSWORD }}
+        run: |
+          : "${SIGNING_P12_BASE64:?Missing FLEXMENU_SIGNING_P12_BASE64 secret}"
+          : "${SIGNING_P12_PASSWORD:?Missing FLEXMENU_SIGNING_P12_PASSWORD secret}"
+          keychain="$RUNNER_TEMP/flexmenu-signing.keychain-db"
+          certificate="$RUNNER_TEMP/flexmenu-signing.p12"
+          keychain_password="$(uuidgen)"
+          printf '%s' "$SIGNING_P12_BASE64" | base64 -D > "$certificate"
+          security create-keychain -p "$keychain_password" "$keychain"
+          security unlock-keychain -p "$keychain_password" "$keychain"
+          security set-keychain-settings -lut 21600 "$keychain"
+          security import "$certificate" -P "$SIGNING_P12_PASSWORD" -k "$keychain" -T /usr/bin/codesign
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$keychain_password" "$keychain"
+          security list-keychains -d user -s "$keychain" "$HOME/Library/Keychains/login.keychain-db"
+
+      - name: Package release candidate
+        run: |
+          app="$RUNNER_TEMP/FlexMenu-Release/Build/Products/Release/FlexMenu.app"
+          codesign --force \
+            --sign 60E5354969D39985A4E8FECE4974A423DAA5F4BA \
+            --keychain "$RUNNER_TEMP/flexmenu-signing.keychain-db" \
+            --timestamp=none \
+            "$app"
+          codesign --verify --deep --strict "$app"
+          archive="FlexMenu-${RELEASE_TAG}-arm64.zip"
+          ditto -c -k --keepParent "$app" "$RUNNER_TEMP/$archive"
+          cd "$RUNNER_TEMP"
+          shasum -a 256 "$archive" > "$archive.sha256"
+
+      - name: Create development release
+        if: github.ref == 'refs/heads/dev'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          archive="FlexMenu-${RELEASE_TAG}-arm64.zip"
+          gh release create "$RELEASE_TAG" \
+            "$RUNNER_TEMP/$archive" \
+            "$RUNNER_TEMP/$archive.sha256" \
+            --target "$GITHUB_SHA" \
+            --prerelease \
+            --latest=false \
+            --title "Development ${GITHUB_SHA:0:12}" \
+            --notes "Built from dev commit $GITHUB_SHA"
+
+      - name: Create draft release
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          archive="FlexMenu-${RELEASE_TAG}-arm64.zip"
+          gh release create "$RELEASE_TAG" \
+            "$RUNNER_TEMP/$archive" \
+            "$RUNNER_TEMP/$archive.sha256" \
+            --draft \
+            --verify-tag \
+            --title "$RELEASE_TAG" \
+            --generate-notes
