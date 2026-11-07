@@ -18,6 +18,10 @@ final class MenuDragView: NSView {
     private var state: MenuState = .waiting
     private var mouseTrackingArea: NSTrackingArea?
 
+    override var acceptsFirstResponder: Bool {
+        true
+    }
+
     override init(frame: NSRect) {
         super.init(frame: frame)
         registerForDraggedTypes([.fileURL, .string])
@@ -65,6 +69,18 @@ final class MenuDragView: NSView {
     override func mouseDown(with _: NSEvent) {
         guard state == .normal else { return }
         _ = onSelect?()
+    }
+
+    override func keyDown(with event: NSEvent) {
+        if event.keyCode == 53 {
+            onCancel?()
+        } else {
+            super.keyDown(with: event)
+        }
+    }
+
+    override func cancelOperation(_: Any?) {
+        onCancel?()
     }
 
     // MARK: - Dragging
@@ -149,7 +165,7 @@ final class MenuPanelController {
             height: size
         )
 
-        let panel = NSPanel(
+        let panel = MenuPanel(
             contentRect: rect,
             styleMask: [.borderless, .nonactivatingPanel],
             backing: .buffered,
@@ -190,7 +206,8 @@ final class MenuPanelController {
         self.panel?.close()
         self.panel = panel
 
-        panel.orderFrontRegardless()
+        panel.makeFirstResponder(dragView)
+        panel.makeKeyAndOrderFront(nil)
     }
 
     private func configure(_ dragView: MenuDragView, size: CGFloat) {
@@ -203,9 +220,7 @@ final class MenuPanelController {
         }
 
         dragView.onCancel = { [weak self] in
-            self?.requestID += 1
-            self?.model.selectedIndex = -1
-            self?.panel?.close()
+            self?.cancel()
         }
 
         dragView.onPointerMoved = { [weak self] location in
@@ -298,8 +313,23 @@ final class MenuPanelController {
         panel?.close()
     }
 
+    private func cancel() {
+        requestID += 1
+        model.selectedIndex = -1
+        model.menuItems = []
+        model.menuDefinitions = []
+        model.context = nil
+        panel?.close()
+    }
+
     private nonisolated static func log(_ message: String) {
         FileHandle.standardError.write(Data("flexmenu: \(message)\n".utf8))
+    }
+}
+
+private final class MenuPanel: NSPanel {
+    override var canBecomeKey: Bool {
+        true
     }
 }
 
