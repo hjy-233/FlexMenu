@@ -17,7 +17,7 @@ enum ServiceIPC {
 
     static func send(_ command: ServiceCommand) throws {
         guard let port = CFMessagePortCreateRemote(nil, portName) else {
-            throw FlexMenuFailure.message("服务未运行，请先运行 service start")
+            throw FlexMenuFailure.message(L10n.text("服务未运行，请先运行 service start"))
         }
         defer { CFMessagePortInvalidate(port) }
 
@@ -27,7 +27,7 @@ enum ServiceIPC {
             port, 0, request as CFData, 3, 3, CFRunLoopMode.defaultMode?.rawValue, &response
         )
         guard status == kCFMessagePortSuccess, let response else {
-            throw FlexMenuFailure.message("服务命令未得到确认（状态 \(status)）")
+            throw FlexMenuFailure.message(L10n.format("服务命令未得到确认（状态 %d）", status))
         }
         let reply = try JSONDecoder().decode(
             ServiceReply.self,
@@ -53,7 +53,7 @@ enum ServiceIPC {
     static func reply(for data: CFData?, apply: (ServiceCommand) throws -> Void) -> CFData {
         do {
             guard let data else {
-                throw FlexMenuFailure.message("服务命令缺少数据")
+                throw FlexMenuFailure.message(L10n.text("服务命令缺少数据"))
             }
             let command = try JSONDecoder().decode(ServiceCommand.self, from: data as Data)
             try apply(command)
@@ -101,7 +101,7 @@ final class ServiceCommandServer {
             &context,
             &shouldFree
         ), !shouldFree.boolValue else {
-            throw FlexMenuFailure.message("无法启动命令服务")
+            throw FlexMenuFailure.message(L10n.text("无法启动命令服务"))
         }
         self.port = port
         CFMessagePortSetDispatchQueue(port, DispatchQueue.main)

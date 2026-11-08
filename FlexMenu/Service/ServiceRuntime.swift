@@ -35,7 +35,7 @@ final class ServiceRuntime {
         try shortcut.register(configuration)
         commandServer = try ServiceCommandServer { [weak self] command in
             guard let self else {
-                throw FlexMenuFailure.message("服务已停止")
+                throw FlexMenuFailure.message(L10n.text("服务已停止"))
             }
             switch command {
             case .showMenu:

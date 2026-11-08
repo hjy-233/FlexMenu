@@ -31,22 +31,22 @@ enum FlexMenuCLI {
         case "service": try ServiceControl.run(rest)
         case "--version", "version": print("FlexMenu 1.0")
         case "--help", "help": print(help)
-        default: throw usage("未知命令：\(command)")
+        default: throw usage(L10n.format("未知命令：%@", command))
         }
     }
 
     private static func showMenu(_ arguments: [String]) throws {
-        guard arguments.isEmpty else { throw usage("menu 不接受参数") }
+        guard arguments.isEmpty else { throw usage(L10n.text("menu 不接受参数")) }
         try ServiceIPC.send(.showMenu)
     }
 
     private static func runAction(_ arguments: [String]) throws {
         guard let identifier = arguments.first else {
-            throw usage("用法：flexmenu run <ID> -- [文件路径...]")
+            throw usage(L10n.text("用法：flexmenu run <ID> -- [文件路径...]"))
         }
         let remaining = Array(arguments.dropFirst())
         guard remaining.isEmpty || remaining.first == "--" else {
-            throw usage("文件路径前需要 --")
+            throw usage(L10n.text("文件路径前需要 --"))
         }
         let paths = remaining.isEmpty ? [] : Array(remaining.dropFirst())
         let configuration = try ConfigurationStore.loadSnapshot()
@@ -59,7 +59,7 @@ enum FlexMenuCLI {
         )
         let items = try MenuScripts.resolve(configuration: configuration, context: context)
         guard let item = items.first(where: { $0.id == identifier }) else {
-            throw FlexMenuFailure.message("找不到操作：\(identifier)")
+            throw FlexMenuFailure.message(L10n.format("找不到操作：%@", identifier))
         }
         let result = try MenuScripts.run(
             item: item,
@@ -74,36 +74,36 @@ enum FlexMenuCLI {
     }
 
     private static func config(_ arguments: [String]) throws {
-        guard let command = arguments.first else { throw usage("缺少 config 子命令") }
+        guard let command = arguments.first else { throw usage(L10n.text("缺少 config 子命令")) }
         let rest = Array(arguments.dropFirst())
         switch command {
         case "init":
-            guard rest.isEmpty else { throw usage("config init 不接受参数") }
+            guard rest.isEmpty else { throw usage(L10n.text("config init 不接受参数")) }
             try ConfigurationStore.initialize()
-            print("已创建配置：\(ConfigurationStore.scriptURL.path)")
+            print(L10n.format("已创建配置：%@", ConfigurationStore.scriptURL.path))
         case "path":
-            guard rest.isEmpty else { throw usage("config path 不接受参数") }
+            guard rest.isEmpty else { throw usage(L10n.text("config path 不接受参数")) }
             print(ConfigurationStore.scriptURL.path)
         case "check":
-            guard rest.count <= 1 else { throw usage("config check [路径]") }
+            guard rest.count <= 1 else { throw usage(L10n.text("config check [路径]")) }
             let url = rest.first.map { URL(fileURLWithPath: $0) }
                 ?? ConfigurationStore.scriptURL
             let configuration = try ConfigurationLoader.load(at: url)
             try MenuScripts.check(configuration: configuration, sampleFile: url.path)
-            print("配置与菜单输出有效：\(configuration.menuScripts.count) 个菜单脚本")
+            print(L10n.format("配置与菜单输出有效：%d 个菜单脚本", configuration.menuScripts.count))
         case "shortcut": try emitShortcut(rest)
         case "menu": try emitMenu(rest)
-        default: throw usage("未知 config 命令：\(command)")
+        default: throw usage(L10n.format("未知 config 命令：%@", command))
         }
     }
 
     private static func emitShortcut(_ arguments: [String]) throws {
         let options = try parseOptions(arguments)
         guard Set(options.keys).isSubset(of: ["key", "modifiers"]) else {
-            throw usage("config shortcut 含未知选项")
+            throw usage(L10n.text("config shortcut 含未知选项"))
         }
         guard let key = options["key"], let modifiers = options["modifiers"] else {
-            throw usage("config shortcut --key <键> --modifiers <修饰键列表>")
+            throw usage(L10n.text("config shortcut --key <键> --modifiers <修饰键列表>"))
         }
         try ConfigurationStore.update(.shortcut(
             key: key,
@@ -115,23 +115,23 @@ enum FlexMenuCLI {
         guard arguments.first == "add" else { throw usage("config menu add ...") }
         let options = try parseOptions(Array(arguments.dropFirst()))
         guard Set(options.keys).isSubset(of: ["script"]) else {
-            throw usage("config menu add 含未知选项")
+            throw usage(L10n.text("config menu add 含未知选项"))
         }
         guard let path = options["script"], !path.isEmpty else {
-            throw usage("config menu add --script <菜单脚本>")
+            throw usage(L10n.text("config menu add --script <菜单脚本>"))
         }
         try ConfigurationStore.update(.addMenu(path: path))
     }
 
     private static func parseOptions(_ arguments: [String]) throws -> [String: String] {
         guard arguments.count.isMultiple(of: 2) else {
-            throw usage("选项必须成对出现")
+            throw usage(L10n.text("选项必须成对出现"))
         }
         var options: [String: String] = [:]
         for index in stride(from: 0, to: arguments.count, by: 2) {
             let name = arguments[index]
             guard name.hasPrefix("--"), options[String(name.dropFirst(2))] == nil else {
-                throw usage("无效或重复的选项：\(name)")
+                throw usage(L10n.format("无效或重复的选项：%@", name))
             }
             options[String(name.dropFirst(2))] = arguments[index + 1]
         }
@@ -143,6 +143,6 @@ enum FlexMenuCLI {
     }
 
     private static var help: String {
-        "cli.help"
+        L10n.text("cli.help")
     }
 }

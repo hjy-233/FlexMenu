@@ -10,19 +10,19 @@ struct NewMenuSheet: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
-            Text("添加菜单").font(.title2)
-            TextField("脚本名称（不含 .sh）", text: $name)
-            Picker("适用模式", selection: $mode) {
-                Text("普通").tag("normal")
-                Text("拖动文件").tag("dragging")
+            Text(L10n.text("添加菜单")).font(.title2)
+            TextField(L10n.text("脚本名称（不含 .sh）"), text: $name)
+            Picker(L10n.text("适用模式"), selection: $mode) {
+                Text(L10n.text("普通")).tag("normal")
+                Text(L10n.text("拖动文件")).tag("dragging")
             }
             if let errorMessage {
                 Text(errorMessage).foregroundStyle(.red)
             }
             HStack {
                 Spacer()
-                Button("取消") { dismiss() }
-                Button("创建菜单") {
+                Button(L10n.text("取消")) { dismiss() }
+                Button(L10n.text("创建菜单")) {
                     isSaving = true
                     Task {
                         do {
@@ -55,11 +55,11 @@ struct NewActionSheet: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("新建操作").font(.title2)
-            TextField("操作标识", text: $identifier)
-            TextField("显示名称", text: $title)
-            TextField("动作脚本名称（不含 .sh）", text: $name)
-            Text("动作脚本内容")
+            Text(L10n.text("新建操作")).font(.title2)
+            TextField(L10n.text("操作标识"), text: $identifier)
+            TextField(L10n.text("显示名称"), text: $title)
+            TextField(L10n.text("动作脚本名称（不含 .sh）"), text: $name)
+            Text(L10n.text("动作脚本内容"))
             TextEditor(text: $source)
                 .font(.system(.body, design: .monospaced))
                 .frame(height: 220)
@@ -68,8 +68,8 @@ struct NewActionSheet: View {
             }
             HStack {
                 Spacer()
-                Button("取消") { dismiss() }
-                Button("创建操作") {
+                Button(L10n.text("取消")) { dismiss() }
+                Button(L10n.text("创建操作")) {
                     isSaving = true
                     Task {
                         do {

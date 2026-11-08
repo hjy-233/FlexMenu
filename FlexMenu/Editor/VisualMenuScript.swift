@@ -63,7 +63,7 @@ struct VisualMenuScript {
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
         let data = try encoder.encode(output)
         guard let json = String(data: data, encoding: .utf8) else {
-            throw FlexMenuFailure.message("无法生成菜单 JSON")
+            throw FlexMenuFailure.message(L10n.text("无法生成菜单 JSON"))
         }
         let prefix = kind == .fileOnly ? Self.fileOnlyPrefix : "#!/bin/zsh\n"
         return prefix + "cat <<'JSON'\n" + json + "\nJSON\n"

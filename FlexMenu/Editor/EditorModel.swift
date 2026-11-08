@@ -46,7 +46,7 @@ final class EditorModel {
     func selectScript(_ script: MenuScript) {
         guard let configuration else { return }
         guard !hasUnsavedMenu, !hasUnsavedAction else {
-            message = "请先保存当前脚本，再切换菜单"
+            message = L10n.text("请先保存当前脚本，再切换菜单")
             return
         }
         do {
@@ -69,7 +69,7 @@ final class EditorModel {
     func selectItem(_ item: MenuItemDefinition) {
         guard let configuration else { return }
         guard !hasUnsavedAction else {
-            message = "请先保存当前动作脚本"
+            message = L10n.text("请先保存当前动作脚本")
             return
         }
         do {
@@ -88,11 +88,11 @@ final class EditorModel {
     func saveMenu() {
         guard !isBusy, let script = selectedScript, let configuration else { return }
         guard !hasUnsavedVisual else {
-            message = "请先保存可视化菜单修改"
+            message = L10n.text("请先保存可视化菜单修改")
             return
         }
         guard !hasUnsavedAction else {
-            message = "请先保存当前动作脚本"
+            message = L10n.text("请先保存当前动作脚本")
             return
         }
         let text = menuText
@@ -140,7 +140,7 @@ final class EditorModel {
 
     func refreshPreview() {
         guard !hasUnsavedMenu, !hasUnsavedAction else {
-            message = "请先保存脚本，再刷新预览"
+            message = L10n.text("请先保存脚本，再刷新预览")
             return
         }
         loadPreview()
@@ -167,7 +167,7 @@ final class EditorModel {
         previewRequest += 1
         let request = previewRequest
         previewItems = []
-        previewMode = "正在读取菜单…"
+        previewMode = L10n.text("正在读取菜单…")
         previewModel.menuItems = []
         previewModel.selectedIndex = -1
         Task.detached { [weak self] in
@@ -181,7 +181,7 @@ final class EditorModel {
                 let mode: String
                 if normal.mode == "normal", !normal.items.isEmpty {
                     output = normal
-                    mode = "普通菜单"
+                    mode = L10n.text("普通菜单")
                 } else {
                     let dragging = try MenuScripts.preview(
                         script: script,
@@ -190,7 +190,7 @@ final class EditorModel {
                     )
                     output = dragging.mode == "dragging" ? dragging : normal
                     mode = output.mode == "dragging"
-                        ? "文件拖动菜单（示例文件）" : "普通菜单"
+                        ? L10n.text("文件拖动菜单（示例文件）") : L10n.text("普通菜单")
                 }
                 await self?.finishPreview(output.items, mode: mode, request: request)
             } catch {
@@ -212,25 +212,25 @@ final class EditorModel {
 
     private func previewFailed(_ error: Error, request: Int) {
         guard previewRequest == request else { return }
-        previewMode = "无法预览"
+        previewMode = L10n.text("无法预览")
         report(error)
     }
 
     private func menuSaved() {
         isBusy = false
         originalMenuText = menuText
-        message = "菜单脚本已保存"
+        message = L10n.text("菜单脚本已保存")
         loadPreview()
     }
 
     private func actionSaved() {
         originalActionText = actionText
-        saved("动作脚本已保存")
+        saved(L10n.text("动作脚本已保存"))
     }
 
     private func shortcutSaved(_ configuration: MenuConfiguration) {
         self.configuration = configuration
-        saved("快捷键已保存并生效")
+        saved(L10n.text("快捷键已保存并生效"))
     }
 
     private func saved(_ text: String) {
@@ -248,10 +248,10 @@ final class EditorModel {
 extension EditorModel {
     func createMenu(name: String, mode: String) async throws {
         guard !isBusy, serviceRunning else {
-            throw FlexMenuFailure.message("请先启动服务")
+            throw FlexMenuFailure.message(L10n.text("请先启动服务"))
         }
         guard !hasUnsavedMenu, !hasUnsavedAction else {
-            throw FlexMenuFailure.message("请先保存当前脚本")
+            throw FlexMenuFailure.message(L10n.text("请先保存当前脚本"))
         }
         isBusy = true
         defer { isBusy = false }
@@ -268,9 +268,9 @@ extension EditorModel {
               let script = selectedScript,
               let template = visualTemplate,
               let configuration
-        else { throw FlexMenuFailure.message("当前菜单无法可视化添加操作") }
+        else { throw FlexMenuFailure.message(L10n.text("当前菜单无法可视化添加操作")) }
         guard !hasUnsavedMenu, !hasUnsavedAction else {
-            throw FlexMenuFailure.message("请先保存当前脚本")
+            throw FlexMenuFailure.message(L10n.text("请先保存当前脚本"))
         }
         let mode = visualMode
         let items = visualItems
@@ -312,7 +312,7 @@ extension EditorModel {
               let visualTemplate
         else { return }
         guard !hasUnsavedSource else {
-            message = "请先保存源码修改"
+            message = L10n.text("请先保存源码修改")
             return
         }
         let items = visualItems

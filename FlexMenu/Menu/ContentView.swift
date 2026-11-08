@@ -6,7 +6,7 @@ struct ContentView: View {
     var body: some View {
         ZStack {
             if model.state == .feedback, let title = model.feedbackTitle {
-                Text("执行：\(title)")
+                Text(L10n.format("执行：%@", title))
                     .font(.system(size: 13, weight: .semibold))
                     .lineLimit(1)
                     .padding(.horizontal, 14)

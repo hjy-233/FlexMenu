@@ -86,10 +86,11 @@
 				};
 			};
 			buildConfigurationList = 0E8106183084BBB100CF2BBE /* Build configuration list for PBXProject "FlexMenu" */;
-			developmentRegion = en;
+			developmentRegion = zh-Hans;
 			hasScannedForEncodings = 0;
 			knownRegions = (
 				en,
+				"zh-Hans",
 				Base,
 			);
 			mainGroup = 0E8106143084BBB100CF2BBE;

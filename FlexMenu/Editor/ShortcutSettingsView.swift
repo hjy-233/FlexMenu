@@ -6,8 +6,8 @@ struct ShortcutSettingsView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 18) {
-            Text("快捷键").font(.title2)
-            TextField("键（space 或 a–z）", text: $model.shortcutKey)
+            Text(L10n.text("快捷键")).font(.title2)
+            TextField(L10n.text("键（space 或 a–z）"), text: $model.shortcutKey)
             HStack {
                 Toggle("⌘ Command", isOn: modifierBinding("command"))
                 Toggle("⌥ Option", isOn: modifierBinding("option"))
@@ -17,8 +17,8 @@ struct ShortcutSettingsView: View {
             .toggleStyle(.checkbox)
             HStack {
                 Spacer()
-                Button("关闭") { dismiss() }
-                Button("保存快捷键") { model.saveShortcut() }
+                Button(L10n.text("关闭")) { dismiss() }
+                Button(L10n.text("保存快捷键")) { model.saveShortcut() }
                     .keyboardShortcut(.defaultAction)
                     .disabled(model.isBusy)
             }
