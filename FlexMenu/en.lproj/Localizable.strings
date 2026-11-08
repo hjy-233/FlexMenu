@@ -45,6 +45,8 @@
 "执行：%@" = "Running: %@";
 "终端" = "Terminal";
 "在 Finder 中定位" = "Reveal in Finder";
+"搜索网页" = "Search Web";
+"复制文字" = "Copy Text";
 "找不到 FlexMenu 可执行文件" = "FlexMenu executable not found";
 "找不到操作：%@" = "Action not found: %@";
 "拖动文件" = "Dragging Files";

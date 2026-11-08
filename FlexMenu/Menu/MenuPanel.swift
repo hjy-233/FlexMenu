@@ -14,6 +14,10 @@ final class MenuPanelController {
     private let model = MenuModel()
     private var configuration: MenuConfiguration?
     private var requestID = 0
+    private var hasActiveDrag: Bool {
+        panel?.isVisible == true && model.state == .dragging &&
+            (NSEvent.pressedMouseButtons & 1) != 0
+    }
 
     init(configuration: MenuConfiguration? = try? ConfigurationStore.loadSnapshot()) {
         self.configuration = configuration
@@ -31,7 +35,10 @@ final class MenuPanelController {
     }
 
     func show() {
-        guard panel?.isVisible != true else { return }
+        if hasActiveDrag {
+            return
+        }
+        panel?.orderOut(nil)
         clearMenu()
         requestID += 1
         let mouse = NSEvent.mouseLocation
@@ -120,6 +127,10 @@ final class MenuPanelController {
             self?.updateSelection(at: location, size: size)
         }
 
+        dragView.onPointerExited = { [weak self] in
+            self?.model.selectedIndex = -1
+        }
+
         dragView.onSelect = { [weak self, weak dragView] in
             guard let self else { return false }
             return self.select(self.model.selectedIndex, dragView: dragView)
@@ -170,8 +181,10 @@ final class MenuPanelController {
         let deltaX = Double(location.x) - center
         let deltaY = center - Double(location.y)
         let distance = hypot(deltaX, deltaY)
+        let hitInnerRadius = model.state == .dragging ? 20 : MenuWheelGeometry.hitInnerRadius
+        let hitOuterRadius = model.state == .dragging ? Double(size) / 2 : MenuWheelGeometry.hitOuterRadius
         guard model.state != .feedback,
-              (MenuWheelGeometry.hitInnerRadius ... MenuWheelGeometry.hitOuterRadius)
+              (hitInnerRadius ... hitOuterRadius)
                   .contains(distance), !model.menuItems.isEmpty
         else {
             model.selectedIndex = -1
@@ -221,6 +234,10 @@ final class MenuPanelController {
         model.state = context.mode == "dragging" ? .dragging : .normal
         if items.isEmpty {
             panel?.orderOut(nil)
+        } else if let panel, let dragView = panel.contentView as? MenuDragView {
+            let windowPoint = panel.convertPoint(fromScreen: NSEvent.mouseLocation)
+            let location = dragView.convert(windowPoint, from: nil)
+            updateSelection(at: location, size: dragView.bounds.width)
         }
     }
 

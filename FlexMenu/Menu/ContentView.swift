@@ -4,6 +4,7 @@ struct ContentView: View {
     let model: MenuModel
 
     var body: some View {
+        let items = model.menuItems
         ZStack {
             if model.state == .feedback, let title = model.feedbackTitle {
                 Text(L10n.format("执行：%@", title))
@@ -14,9 +15,9 @@ struct ContentView: View {
                     .background(.regularMaterial, in: Capsule())
                     .overlay(Capsule().strokeBorder(.primary.opacity(0.12)))
                     .shadow(color: .black.opacity(0.18), radius: 12, y: 4)
-            } else if model.state != .waiting, !model.menuItems.isEmpty {
-                ForEach(model.menuItems.indices, id: \.self) { index in
-                    segment(at: index, count: model.menuItems.count)
+            } else if model.state != .waiting, !items.isEmpty {
+                ForEach(items.indices, id: \.self) { index in
+                    segment(item: items[index], at: index, count: items.count)
                 }
             }
         }
@@ -24,7 +25,7 @@ struct ContentView: View {
         .contentShape(Rectangle())
     }
 
-    private func segment(at index: Int, count: Int) -> some View {
+    private func segment(item: MenuItem, at index: Int, count: Int) -> some View {
         let segmentAngle = 360.0 / Double(count)
         let gap = count > 1 ? MenuWheelGeometry.gapDegrees / 2 : 0
         let angle = MenuWheelGeometry.angle(for: index, count: count)
@@ -48,7 +49,7 @@ struct ContentView: View {
                         .font(.system(size: 9, weight: .medium, design: .rounded))
                         .opacity(0.72)
                 }
-                Text(model.menuItems[index].title)
+                Text(item.title)
                     .font(.system(size: 12, weight: .semibold))
                     .lineLimit(2)
                     .multilineTextAlignment(.center)
