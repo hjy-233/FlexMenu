@@ -15,23 +15,7 @@ private final class FlexMenuAppDelegate: NSObject, NSApplicationDelegate {
                 return .terminateCancel
             }
         }
-        Task.detached {
-            do {
-                try ServiceControl.stopIfNeeded()
-                await MainActor.run {
-                    NSApp.reply(toApplicationShouldTerminate: true)
-                }
-            } catch {
-                await MainActor.run {
-                    let alert = NSAlert()
-                    alert.messageText = L10n.text("无法停止 FlexMenu 服务")
-                    alert.informativeText = error.localizedDescription
-                    alert.runModal()
-                    NSApp.reply(toApplicationShouldTerminate: false)
-                }
-            }
-        }
-        return .terminateLater
+        return .terminateNow
     }
 }
 
