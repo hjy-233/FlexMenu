@@ -27,10 +27,9 @@ struct ContentView: View {
 
     private func segment(item: MenuItem, at index: Int, count: Int) -> some View {
         let segmentAngle = 360.0 / Double(count)
-        let gap = count > 1 ? MenuWheelGeometry.gapDegrees / 2 : 0
         let angle = MenuWheelGeometry.angle(for: index, count: count)
-        let start = angle - segmentAngle / 2 + gap
-        let end = angle + segmentAngle / 2 - gap
+        let start = angle - segmentAngle / 2
+        let end = angle + segmentAngle / 2
         let mid = angle * .pi / 180
         let labelRadius = (MenuWheelGeometry.innerRadius + MenuWheelGeometry.outerRadius) / 2
         let selected = model.selectedIndex == index
@@ -88,18 +87,22 @@ private struct MenuWheelSlice: Shape {
             ))
             return path
         }
+        let outerInset = asin(MenuWheelGeometry.gapWidth / (2 * Double(MenuWheelGeometry.outerRadius)))
+            * 180 / .pi
+        let innerInset = asin(MenuWheelGeometry.gapWidth / (2 * Double(MenuWheelGeometry.innerRadius)))
+            * 180 / .pi
         path.addArc(
             center: center,
             radius: MenuWheelGeometry.outerRadius,
-            startAngle: .degrees(start),
-            endAngle: .degrees(end),
+            startAngle: .degrees(start + outerInset),
+            endAngle: .degrees(end - outerInset),
             clockwise: false
         )
         path.addArc(
             center: center,
             radius: MenuWheelGeometry.innerRadius,
-            startAngle: .degrees(end),
-            endAngle: .degrees(start),
+            startAngle: .degrees(end - innerInset),
+            endAngle: .degrees(start + innerInset),
             clockwise: true
         )
         path.closeSubpath()
