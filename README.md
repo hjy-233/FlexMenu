@@ -4,8 +4,6 @@
 
 A scriptable radial menu for macOS.
 
-Press a shortcut, move your mouse, and click to run an action. FlexMenu also supports drag-and-drop: drag a file, open the menu, and release it over an action.
-
 Menus and actions are defined with Shell scripts.
 
 <!-- TODO: Demo GIF -->
