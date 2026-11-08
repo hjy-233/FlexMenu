@@ -5,9 +5,11 @@ import Foundation
 final class ServiceRuntime {
     private let panelController: MenuPanelController
     private let shortcut = Shortcut()
-    private var notificationObserver: NSObjectProtocol?
+    private var configuration: MenuConfiguration
+    private var commandServer: ServiceCommandServer?
 
     private init(configuration: MenuConfiguration) {
+        self.configuration = configuration
         panelController = MenuPanelController(configuration: configuration)
     }
 
@@ -31,18 +33,44 @@ final class ServiceRuntime {
             Task { @MainActor in self?.panelController.show() }
         }
         try shortcut.register(configuration)
-        notificationObserver = DistributedNotificationCenter.default().addObserver(
-            forName: .flexMenuShow,
-            object: nil,
-            queue: .main
-        ) { [weak self] _ in
-            Task { @MainActor in self?.panelController.show() }
+        commandServer = try ServiceCommandServer { [weak self] command in
+            guard let self else {
+                throw FlexMenuFailure.message("服务已停止")
+            }
+            switch command {
+            case .showMenu:
+                self.panelController.show()
+            case let .configuration(change):
+                try self.apply(change)
+            }
         }
     }
 
-    deinit {
-        if let notificationObserver {
-            DistributedNotificationCenter.default().removeObserver(notificationObserver)
+    private func apply(_ change: ConfigurationChange) throws {
+        var updated = configuration
+        try change.apply(to: &updated)
+        try Shortcut.validate(updated)
+        let shortcutChanged = updated.shortcutKey != configuration.shortcutKey ||
+            updated.shortcutModifiers != configuration.shortcutModifiers
+        if shortcutChanged {
+            shortcut.unregister()
+            do {
+                try shortcut.register(updated)
+            } catch {
+                try? shortcut.register(configuration)
+                throw error
+            }
         }
+        do {
+            try ConfigurationStore.save(updated)
+        } catch {
+            if shortcutChanged {
+                shortcut.unregister()
+                try? shortcut.register(configuration)
+            }
+            throw error
+        }
+        configuration = updated
+        panelController.updateConfiguration(updated)
     }
 }

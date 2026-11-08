@@ -60,19 +60,24 @@ final class Shortcut {
         guard registerStatus == noErr else {
             if let handler {
                 RemoveEventHandler(handler)
+                self.handler = nil
             }
             throw FlexMenuFailure.message("快捷键注册失败：\(registerStatus)")
         }
     }
 
-    deinit {
+    func unregister() {
         if let hotKey {
             UnregisterEventHotKey(hotKey)
+            self.hotKey = nil
         }
         if let handler {
             RemoveEventHandler(handler)
+            self.handler = nil
         }
     }
+
+    deinit { unregister() }
 
     private static let modifiers: [String: UInt32] = [
         "command": UInt32(cmdKey),

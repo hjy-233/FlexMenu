@@ -66,6 +66,30 @@ struct MenuConfiguration: Codable {
     var menuScripts: [MenuScript] = []
 }
 
+enum ConfigurationChange: Codable {
+    case shortcut(key: String, modifiers: [String])
+    case addMenu(path: String)
+
+    func apply(to configuration: inout MenuConfiguration) throws {
+        switch self {
+        case let .shortcut(key, modifiers):
+            configuration.shortcutKey = key
+            configuration.shortcutModifiers = modifiers
+            try Shortcut.validate(configuration)
+        case let .addMenu(path):
+            guard !configuration.menuScripts.contains(where: { $0.path == path }) else {
+                throw FlexMenuFailure.message("重复的菜单脚本：\(path)")
+            }
+            guard FileManager.default.fileExists(
+                atPath: configuration.scriptURL(for: path).path
+            ) else {
+                throw FlexMenuFailure.message("菜单脚本不存在：\(path)")
+            }
+            configuration.menuScripts.append(MenuScript(path: path))
+        }
+    }
+}
+
 enum ConfigurationStore {
     static var scriptURL: URL {
         FileManager.default.homeDirectoryForCurrentUser
@@ -78,19 +102,34 @@ enum ConfigurationStore {
     }
 
     static func loadSnapshot() throws -> MenuConfiguration {
+        try load(at: snapshotURL)
+    }
+
+    static func load(at url: URL) throws -> MenuConfiguration {
         try JSONDecoder().decode(
             MenuConfiguration.self,
-            from: Data(contentsOf: snapshotURL)
+            from: Data(contentsOf: url)
         )
     }
 
-    static func save(_ config: MenuConfiguration) throws {
-        let directory = snapshotURL.deletingLastPathComponent()
+    static func save(_ config: MenuConfiguration, to url: URL = snapshotURL) throws {
+        let directory = url.deletingLastPathComponent()
         try FileManager.default.createDirectory(
             at: directory,
             withIntermediateDirectories: true
         )
-        try JSONEncoder().encode(config).write(to: snapshotURL, options: .atomic)
+        try JSONEncoder().encode(config).write(to: url, options: .atomic)
+    }
+
+    static func update(_ change: ConfigurationChange) throws {
+        if let stagingPath = ProcessInfo.processInfo.environment["FLEXMENU_CONFIG_STAGE"] {
+            let url = URL(fileURLWithPath: stagingPath)
+            var configuration = try load(at: url)
+            try change.apply(to: &configuration)
+            try save(configuration, to: url)
+        } else {
+            try ServiceIPC.send(.configuration(change))
+        }
     }
 
     static func initialize() throws {
@@ -111,21 +150,25 @@ enum ConfigurationStore {
         try writeExample(action, to: actionURL)
         let reveal = "#!/bin/zsh\nfor file in \"$@\"; do\n    open -R -- \"$file\"\ndone\n"
         try writeExample(reveal, to: revealURL)
+        let terminalTitle = "终端"
         let menu = """
         #!/bin/zsh
         cat <<'JSON'
-        {"mode":"normal","items":[{"id":"terminal","title":"终端","action":"actions/terminal.sh"}]}
+        {"mode":"normal","items":[{"id":"terminal","title":"\(terminalTitle)","action":"actions/terminal.sh"}]}
         JSON
 
         """
         try writeExample(menu, to: menuURL)
+        let revealTitle = "在 Finder 中定位"
+        let revealItem = "{\"mode\":\"dragging\",\"items\":[{\"id\":\"reveal\"," +
+            "\"title\":\"\(revealTitle)\",\"action\":\"actions/reveal.sh\"}]}"
         let dragging = """
         #!/bin/zsh
         if (( $# == 0 )); then
             print -r -- '{"mode":"dragging","items":[]}'
             exit 0
         fi
-        print -r -- '{"mode":"dragging","items":[{"id":"reveal","title":"在 Finder 中定位","action":"actions/reveal.sh"}]}'
+        print -r -- '\(revealItem)'
 
         """
         try writeExample(dragging, to: draggingURL)
@@ -155,11 +198,21 @@ enum ConfigurationLoader {
         }
 
         let executable = Bundle.main.executableURL?.path ?? CommandLine.arguments[0]
+        let stagedURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent("flexmenu-config-\(UUID().uuidString).json")
+        defer { try? FileManager.default.removeItem(at: stagedURL) }
+        var initial = MenuConfiguration()
+        initial.scriptDirectory = url.deletingLastPathComponent().path
+        try ConfigurationStore.save(initial, to: stagedURL)
+
         let command = "set -e; function flexmenu() { \"$FLEXMENU_EXECUTABLE\" \"$@\"; }; source \"$1\""
         let result = try ShellProcess.run(
             executable: "/bin/zsh",
             arguments: ["-c", command, "flexmenurc", url.path],
-            environment: ["FLEXMENU_EXECUTABLE": executable],
+            environment: [
+                "FLEXMENU_EXECUTABLE": executable,
+                "FLEXMENU_CONFIG_STAGE": stagedURL.path
+            ],
             input: nil,
             timeout: 10
         )
@@ -167,46 +220,12 @@ enum ConfigurationLoader {
             throw FlexMenuFailure.message("配置执行失败（状态 \(result.status)）：\(result.error)")
         }
 
-        var config = MenuConfiguration()
-        config.scriptDirectory = url.deletingLastPathComponent().path
-        for line in result.output.split(separator: "\n") {
-            let instruction = try JSONDecoder().decode(
-                ConfigurationInstruction.self,
-                from: Data(line.utf8)
-            )
-            try apply(instruction, to: &config)
-        }
+        let config = try ConfigurationStore.load(at: stagedURL)
         guard !config.menuScripts.isEmpty else {
             throw FlexMenuFailure.message("配置没有菜单脚本")
         }
         try Shortcut.validate(config)
         return config
-    }
-
-    private static func apply(
-        _ instruction: ConfigurationInstruction,
-        to config: inout MenuConfiguration
-    ) throws {
-        switch instruction.kind {
-        case "shortcut":
-            config.shortcutKey = instruction.key
-            config.shortcutModifiers = instruction.modifiers ?? []
-        case "menu":
-            guard let script = instruction.script else {
-                throw FlexMenuFailure.message("菜单配置缺少脚本")
-            }
-            guard !config.menuScripts.contains(where: { $0.path == script.path }) else {
-                throw FlexMenuFailure.message("重复的菜单脚本：\(script.path)")
-            }
-            guard FileManager.default.fileExists(
-                atPath: config.scriptURL(for: script.path).path
-            ) else {
-                throw FlexMenuFailure.message("菜单脚本不存在：\(script.path)")
-            }
-            config.menuScripts.append(script)
-        default:
-            throw FlexMenuFailure.message("未知配置指令：\(instruction.kind)")
-        }
     }
 }
 
@@ -217,11 +236,4 @@ extension MenuConfiguration {
         }
         return URL(fileURLWithPath: scriptDirectory).appendingPathComponent(path)
     }
-}
-
-struct ConfigurationInstruction: Codable {
-    let kind: String
-    let key: String?
-    let modifiers: [String]?
-    let script: MenuScript?
 }
