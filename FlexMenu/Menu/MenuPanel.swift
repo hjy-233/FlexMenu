@@ -8,128 +8,6 @@
 import AppKit
 import SwiftUI
 
-final class MenuDragView: NSView {
-    var onNormal: (() -> Void)?
-    var onDragging: ((NSPasteboard) -> Void)?
-    var onPointerMoved: ((NSPoint) -> Void)?
-    var onSelect: (() -> Bool)?
-    var onCancel: (() -> Void)?
-
-    private var state: MenuState = .waiting
-    private var mouseTrackingArea: NSTrackingArea?
-
-    override var acceptsFirstResponder: Bool {
-        true
-    }
-
-    override init(frame: NSRect) {
-        super.init(frame: frame)
-        registerForDraggedTypes([.fileURL, .string])
-    }
-
-    required init?(coder: NSCoder) {
-        super.init(coder: coder)
-        registerForDraggedTypes([.fileURL, .string])
-    }
-
-    // MARK: - Mouse Tracking
-
-    override func updateTrackingAreas() {
-        super.updateTrackingAreas()
-
-        if let mouseTrackingArea {
-            removeTrackingArea(mouseTrackingArea)
-        }
-
-        let area = NSTrackingArea(
-            rect: .zero,
-            options: [
-                .mouseMoved,
-                .activeAlways,
-                .inVisibleRect
-            ],
-            owner: self,
-            userInfo: nil
-        )
-
-        addTrackingArea(area)
-        mouseTrackingArea = area
-    }
-
-    override func mouseMoved(with event: NSEvent) {
-        if state == .waiting {
-            state = .normal
-            onNormal?()
-        }
-
-        let location = convert(event.locationInWindow, from: nil)
-        onPointerMoved?(location)
-    }
-
-    override func mouseDown(with _: NSEvent) {
-        guard state == .normal else { return }
-        _ = onSelect?()
-    }
-
-    override func keyDown(with event: NSEvent) {
-        if event.keyCode == 53 {
-            onCancel?()
-        } else {
-            super.keyDown(with: event)
-        }
-    }
-
-    override func cancelOperation(_: Any?) {
-        onCancel?()
-    }
-
-    // MARK: - Dragging
-
-    override func draggingEntered(
-        _ sender: NSDraggingInfo
-    ) -> NSDragOperation {
-        state = .dragging
-
-        let pasteboard = sender.draggingPasteboard
-        onDragging?(pasteboard)
-
-        let location = convert(sender.draggingLocation, from: nil)
-        onPointerMoved?(location)
-
-        return .copy
-    }
-
-    override func prepareForDragOperation(
-        _: NSDraggingInfo
-    ) -> Bool {
-        true
-    }
-
-    override func draggingUpdated(
-        _ sender: NSDraggingInfo
-    ) -> NSDragOperation {
-        let location = convert(sender.draggingLocation, from: nil)
-        onPointerMoved?(location)
-
-        return .copy
-    }
-
-    override func draggingExited(_: NSDraggingInfo?) {
-        state = .waiting
-        onCancel?()
-    }
-
-    override func draggingEnded(_: NSDraggingInfo) {
-        state = .waiting
-        onCancel?()
-    }
-
-    override func performDragOperation(_: NSDraggingInfo) -> Bool {
-        guard state == .dragging else { return false }
-        return onSelect?() ?? false
-    }
-}
-
 @MainActor
 final class MenuPanelController {
     private var panel: NSPanel?
@@ -154,11 +32,7 @@ final class MenuPanelController {
 
     func show() {
         guard panel?.isVisible != true else { return }
-        model.state = .waiting
-        model.selectedIndex = -1
-        model.menuItems = []
-        model.menuDefinitions = []
-        model.context = nil
+        clearMenu()
         requestID += 1
         let mouse = NSEvent.mouseLocation
         let size: CGFloat = 260
@@ -169,6 +43,10 @@ final class MenuPanelController {
             width: size,
             height: size
         )
+
+        if showExistingPanel(at: rect) {
+            return
+        }
 
         let panel = MenuPanel(
             contentRect: rect,
@@ -208,11 +86,21 @@ final class MenuPanelController {
 
         panel.contentView = dragView
 
-        self.panel?.close()
         self.panel = panel
 
         panel.makeFirstResponder(dragView)
         panel.makeKeyAndOrderFront(nil)
+        dragView.activateNormal()
+    }
+
+    private func showExistingPanel(at rect: NSRect) -> Bool {
+        guard let panel, let dragView = panel.contentView as? MenuDragView else { return false }
+        dragView.reset()
+        panel.setFrame(rect, display: false)
+        panel.makeFirstResponder(dragView)
+        panel.makeKeyAndOrderFront(nil)
+        dragView.activateNormal()
+        return true
     }
 
     private func configure(_ dragView: MenuDragView, size: CGFloat) {
@@ -232,34 +120,49 @@ final class MenuPanelController {
             self?.updateSelection(at: location, size: size)
         }
 
-        dragView.onSelect = { [weak self] in
-            DispatchQueue.main.async {
-                if let panel = self?.panel, self?.model.selectedIndex != -1 {
-                    panel.close()
-                }
-            }
+        dragView.onSelect = { [weak self, weak dragView] in
             guard let self else { return false }
-            let index = self.model.selectedIndex
-            guard self.model.menuDefinitions.indices.contains(index),
-                  let configuration = self.configuration,
-                  let context = self.model.context else { return false }
-            let item = self.model.menuDefinitions[index]
-            Task.detached {
-                do {
-                    let result = try MenuScripts.run(
-                        item: item,
-                        configuration: configuration,
-                        context: context
-                    )
-                    if result.status != 0 {
-                        Self.log("动作失败（\(item.id)）：\(result.error)")
-                    }
-                } catch {
-                    Self.log("动作失败（\(item.id)）：\(error.localizedDescription)")
-                }
-            }
-            return true
+            return self.select(self.model.selectedIndex, dragView: dragView)
         }
+
+        dragView.onSelectNumber = { [weak self, weak dragView] index in
+            self?.select(index, dragView: dragView) ?? false
+        }
+    }
+
+    private func select(_ index: Int, dragView: MenuDragView?) -> Bool {
+        guard model.state == .normal || model.state == .dragging,
+              model.menuDefinitions.indices.contains(index),
+              let configuration,
+              let context = model.context else { return false }
+        let item = model.menuDefinitions[index]
+        requestID += 1
+        let feedbackRequest = requestID
+        model.selectedIndex = index
+        model.feedbackTitle = item.title
+        model.state = .feedback
+        dragView?.showFeedback()
+
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { [weak self] in
+            guard let self, self.requestID == feedbackRequest else { return }
+            self.panel?.orderOut(nil)
+        }
+
+        Task.detached {
+            do {
+                let result = try MenuScripts.run(
+                    item: item,
+                    configuration: configuration,
+                    context: context
+                )
+                if result.status != 0 {
+                    Self.log("动作失败（\(item.id)）：\(result.error)")
+                }
+            } catch {
+                Self.log("动作失败（\(item.id)）：\(error.localizedDescription)")
+            }
+        }
+        return true
     }
 
     private func updateSelection(at location: NSPoint, size: CGFloat) {
@@ -267,20 +170,28 @@ final class MenuPanelController {
         let deltaX = Double(location.x) - center
         let deltaY = center - Double(location.y)
         let distance = hypot(deltaX, deltaY)
-        guard (45 ... 110).contains(distance), !model.menuItems.isEmpty else {
+        guard model.state != .feedback,
+              (MenuWheelGeometry.hitInnerRadius ... MenuWheelGeometry.hitOuterRadius)
+              .contains(distance), !model.menuItems.isEmpty
+        else {
             model.selectedIndex = -1
             return
         }
         let degrees = atan2(deltaY, deltaX) * 180 / .pi
-        let adjusted = (degrees + 450).truncatingRemainder(dividingBy: 360)
-        model.selectedIndex = Int(adjusted / (360.0 / Double(model.menuItems.count)))
+        let segmentAngle = 360.0 / Double(model.menuItems.count)
+        let adjusted = (degrees + 450 + segmentAngle / 2)
+            .truncatingRemainder(dividingBy: 360)
+        model.selectedIndex = Int(adjusted / segmentAngle)
     }
 
     private func resolve(_ context: MenuContext) {
         guard let configuration else {
             Self.log("配置未加载，请先运行 flexmenu service start")
-            panel?.close()
+            panel?.orderOut(nil)
             return
+        }
+        if context.mode == "dragging" {
+            clearMenu()
         }
         requestID += 1
         let currentRequest = requestID
@@ -305,26 +216,33 @@ final class MenuPanelController {
         guard requestID == request else { return }
         model.menuDefinitions = items
         model.context = context
+        model.feedbackTitle = nil
         model.menuItems = items.map { MenuItem(id: $0.id, title: $0.title) }
         model.state = context.mode == "dragging" ? .dragging : .normal
         if items.isEmpty {
-            panel?.close()
+            panel?.orderOut(nil)
         }
     }
 
     private func failResolve(_ error: Error, request: Int) {
         guard requestID == request else { return }
         Self.log("菜单解析失败：\(error.localizedDescription)")
-        panel?.close()
+        panel?.orderOut(nil)
     }
 
     private func cancel() {
         requestID += 1
+        clearMenu()
+        panel?.orderOut(nil)
+    }
+
+    private func clearMenu() {
+        model.state = .waiting
         model.selectedIndex = -1
+        model.feedbackTitle = nil
         model.menuItems = []
         model.menuDefinitions = []
         model.context = nil
-        panel?.close()
     }
 
     private nonisolated static func log(_ message: String) {
