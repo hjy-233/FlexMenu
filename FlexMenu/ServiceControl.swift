@@ -12,6 +12,19 @@ enum ServiceControl {
         "gui/\(getuid())/\(label)"
     }
 
+    static func startIfNeeded() throws {
+        guard !isLoaded else { return }
+        if !FileManager.default.fileExists(atPath: ConfigurationStore.scriptURL.path) {
+            try ConfigurationStore.initialize()
+        }
+        try run(["start"])
+    }
+
+    static func stopIfNeeded() throws {
+        guard isLoaded else { return }
+        try run(["stop"])
+    }
+
     static func run(_ arguments: [String]) throws {
         guard arguments.count == 1, let command = arguments.first else {
             throw FlexMenuFailure.message("用法：flexmenu service start|restart|stop|status")
@@ -80,6 +93,9 @@ enum ServiceControl {
         let result = try launchctl(["bootstrap", "gui/\(getuid())", agentURL.path])
         guard result.status == 0 else {
             throw FlexMenuFailure.message("启动服务失败：\(result.error)")
+        }
+        guard ServiceIPC.waitUntilReady(timeout: 5) else {
+            throw FlexMenuFailure.message("服务已启动，但命令端口未就绪")
         }
         print("服务已启动")
     }

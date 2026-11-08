@@ -134,10 +134,15 @@ final class MenuDragView: NSView {
 final class MenuPanelController {
     private var panel: NSPanel?
     private let model = MenuModel()
-    private let configuration: MenuConfiguration?
+    private var configuration: MenuConfiguration?
     private var requestID = 0
 
     init(configuration: MenuConfiguration? = try? ConfigurationStore.loadSnapshot()) {
+        self.configuration = configuration
+    }
+
+    func updateConfiguration(_ configuration: MenuConfiguration) {
+        cancel()
         self.configuration = configuration
     }
 

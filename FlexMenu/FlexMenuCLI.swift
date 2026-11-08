@@ -37,14 +37,7 @@ enum FlexMenuCLI {
 
     private static func showMenu(_ arguments: [String]) throws {
         guard arguments.isEmpty else { throw usage("menu 不接受参数") }
-        guard ServiceControl.isRunning else {
-            throw FlexMenuFailure.message("服务未运行，请先运行 service start")
-        }
-        DistributedNotificationCenter.default().post(
-            name: .flexMenuShow,
-            object: nil,
-            userInfo: nil
-        )
+        try ServiceIPC.send(.showMenu)
     }
 
     private static func runAction(_ arguments: [String]) throws {
@@ -112,11 +105,9 @@ enum FlexMenuCLI {
         guard let key = options["key"], let modifiers = options["modifiers"] else {
             throw usage("config shortcut --key <键> --modifiers <修饰键列表>")
         }
-        try emit(ConfigurationInstruction(
-            kind: "shortcut",
+        try ConfigurationStore.update(.shortcut(
             key: key,
-            modifiers: modifiers.split(separator: ",").map(String.init),
-            script: nil
+            modifiers: modifiers.split(separator: ",").map(String.init)
         ))
     }
 
@@ -129,12 +120,7 @@ enum FlexMenuCLI {
         guard let path = options["script"], !path.isEmpty else {
             throw usage("config menu add --script <菜单脚本>")
         }
-        try emit(ConfigurationInstruction(
-            kind: "menu",
-            key: nil,
-            modifiers: nil,
-            script: MenuScript(path: path)
-        ))
+        try ConfigurationStore.update(.addMenu(path: path))
     }
 
     private static func parseOptions(_ arguments: [String]) throws -> [String: String] {
@@ -152,26 +138,11 @@ enum FlexMenuCLI {
         return options
     }
 
-    private static func emit(_ instruction: ConfigurationInstruction) throws {
-        let data = try JSONEncoder().encode(instruction)
-        FileHandle.standardOutput.write(data + Data("\n".utf8))
-    }
-
     private static func usage(_ message: String) -> FlexMenuFailure {
         .message(message)
     }
 
-    private static let help = """
-    flexmenu menu
-    flexmenu run <ID> -- [文件路径...]
-    flexmenu config init|path|check [路径]
-    flexmenu config shortcut --key <键> --modifiers command,option
-    flexmenu config menu add --script <菜单脚本>
-    flexmenu service start|restart|stop|status
-    flexmenu --version
-    """
-}
-
-extension Notification.Name {
-    static let flexMenuShow = Notification.Name("org.dcstudio.FlexMenu.show")
+    private static var help: String {
+        "cli.help"
+    }
 }
