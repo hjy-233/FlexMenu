@@ -1,6 +1,19 @@
 import Foundation
 
 enum MenuScripts {
+    static func preview(
+        script: MenuScript,
+        configuration: MenuConfiguration,
+        context: MenuContext
+    ) throws -> MenuOutput {
+        try load(
+            script,
+            configuration: configuration,
+            context: context,
+            input: JSONEncoder().encode(context)
+        )
+    }
+
     static func resolve(
         configuration: MenuConfiguration,
         context: MenuContext

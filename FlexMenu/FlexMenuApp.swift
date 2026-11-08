@@ -1,42 +1,48 @@
-//
-//  FlexMenuApp.swift
-//  FlexMenu
-//
-//  Created by hjy_666 on 2026/10/18.
-//
-
+import AppKit
 import SwiftUI
 
+private final class FlexMenuAppDelegate: NSObject, NSApplicationDelegate {
+    weak var editorModel: EditorModel?
+
+    func applicationShouldTerminate(_: NSApplication) -> NSApplication.TerminateReply {
+        if let editorModel, editorModel.hasUnsavedMenu || editorModel.hasUnsavedAction {
+            let alert = NSAlert()
+            alert.messageText = "有未保存的脚本修改"
+            alert.informativeText = "退出后将丢失这些修改。"
+            alert.addButton(withTitle: "退出并丢弃")
+            alert.addButton(withTitle: "取消")
+            guard alert.runModal() == .alertFirstButtonReturn else {
+                return .terminateCancel
+            }
+        }
+        Task.detached {
+            do {
+                try ServiceControl.stopIfNeeded()
+                await MainActor.run {
+                    NSApp.reply(toApplicationShouldTerminate: true)
+                }
+            } catch {
+                await MainActor.run {
+                    let alert = NSAlert()
+                    alert.messageText = "无法停止 FlexMenu 服务"
+                    alert.informativeText = error.localizedDescription
+                    alert.runModal()
+                    NSApp.reply(toApplicationShouldTerminate: false)
+                }
+            }
+        }
+        return .terminateLater
+    }
+}
+
 struct FlexMenuApp: App {
-    @State private var panelController = MenuPanelController()
-    @State private var previewModel = MenuModel()
+    @NSApplicationDelegateAdaptor(FlexMenuAppDelegate.self) private var appDelegate
+    @State private var editorModel = EditorModel()
 
     var body: some Scene {
         WindowGroup {
-            VStack {
-                ContentView(model: previewModel)
-
-                Button("5 秒后测试") {
-                    panelController.schedule()
-                }
-            }
-            .onAppear {
-                if let configuration = try? ConfigurationStore.loadSnapshot() {
-                    let context = MenuContext.normal()
-                    Task.detached {
-                        let items = try? MenuScripts.resolve(
-                            configuration: configuration,
-                            context: context
-                        )
-                        await MainActor.run {
-                            previewModel.menuItems = items?.map {
-                                MenuItem(id: $0.id, title: $0.title)
-                            } ?? []
-                        }
-                    }
-                }
-                previewModel.state = .normal
-            }
+            EditorView(model: editorModel)
+                .onAppear { appDelegate.editorModel = editorModel }
         }
     }
 }
