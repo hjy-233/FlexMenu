@@ -172,7 +172,7 @@ final class MenuPanelController {
         let distance = hypot(deltaX, deltaY)
         guard model.state != .feedback,
               (MenuWheelGeometry.hitInnerRadius ... MenuWheelGeometry.hitOuterRadius)
-              .contains(distance), !model.menuItems.isEmpty
+                  .contains(distance), !model.menuItems.isEmpty
         else {
             model.selectedIndex = -1
             return
