@@ -136,11 +136,15 @@ enum ConfigurationStore {
         let directory = scriptURL.deletingLastPathComponent()
         let actionURL = directory.appendingPathComponent("actions/terminal.sh")
         let revealURL = directory.appendingPathComponent("actions/reveal.sh")
+        let searchTextURL = directory.appendingPathComponent("actions/search-text.sh")
+        let copyTextURL = directory.appendingPathComponent("actions/copy-text.sh")
         let menuURL = directory.appendingPathComponent("menus/normal.sh")
         let draggingURL = directory.appendingPathComponent("menus/dragging.sh")
         guard !FileManager.default.fileExists(atPath: scriptURL.path),
               !FileManager.default.fileExists(atPath: actionURL.path),
               !FileManager.default.fileExists(atPath: revealURL.path),
+              !FileManager.default.fileExists(atPath: searchTextURL.path),
+              !FileManager.default.fileExists(atPath: copyTextURL.path),
               !FileManager.default.fileExists(atPath: menuURL.path),
               !FileManager.default.fileExists(atPath: draggingURL.path)
         else {
@@ -150,6 +154,16 @@ enum ConfigurationStore {
         try writeExample(action, to: actionURL)
         let reveal = "#!/bin/zsh\nfor file in \"$@\"; do\n    open -R -- \"$file\"\ndone\n"
         try writeExample(reveal, to: revealURL)
+        let searchText = """
+        #!/bin/zsh
+        query=$(jq -r '.text // "" | @uri')
+        [[ -n "$query" ]] || exit 1
+        open "https://www.google.com/search?q=$query"
+
+        """
+        try writeExample(searchText, to: searchTextURL)
+        let copyText = "#!/bin/zsh\njq -jr '.text // \"\"' | pbcopy\n"
+        try writeExample(copyText, to: copyTextURL)
         let terminalTitle = L10n.text("终端")
         let menu = """
         #!/bin/zsh
@@ -159,19 +173,7 @@ enum ConfigurationStore {
 
         """
         try writeExample(menu, to: menuURL)
-        let revealTitle = L10n.text("在 Finder 中定位")
-        let revealItem = "{\"mode\":\"dragging\",\"items\":[{\"id\":\"reveal\"," +
-            "\"title\":\"\(revealTitle)\",\"action\":\"actions/reveal.sh\"}]}"
-        let dragging = """
-        #!/bin/zsh
-        if (( $# == 0 )); then
-            print -r -- '{"mode":"dragging","items":[]}'
-            exit 0
-        fi
-        print -r -- '\(revealItem)'
-
-        """
-        try writeExample(dragging, to: draggingURL)
+        try writeDraggingExample(to: draggingURL)
         let configuration = """
         #!/bin/zsh
         flexmenu config shortcut --key space --modifiers command,option
@@ -180,6 +182,31 @@ enum ConfigurationStore {
 
         """
         try writeExample(configuration, to: scriptURL)
+    }
+
+    private static func writeDraggingExample(to url: URL) throws {
+        let revealTitle = L10n.text("在 Finder 中定位")
+        let revealItem = "{\"mode\":\"dragging\",\"items\":[{\"id\":\"reveal\"," +
+            "\"title\":\"\(revealTitle)\",\"action\":\"actions/reveal.sh\"}]}"
+        let searchTitle = L10n.text("搜索网页")
+        let copyTitle = L10n.text("复制文字")
+        let textItems = "{\"mode\":\"dragging\",\"items\":[" +
+            "{\"id\":\"search-text\",\"title\":\"\(searchTitle)\",\"action\":\"actions/search-text.sh\"}," +
+            "{\"id\":\"copy-text\",\"title\":\"\(copyTitle)\",\"action\":\"actions/copy-text.sh\"}]}"
+        let dragging = """
+        #!/bin/zsh
+        if (( $# > 0 )); then
+            print -r -- '\(revealItem)'
+            exit 0
+        fi
+        if jq -e '.text | strings | select(length > 0)' >/dev/null; then
+            print -r -- '\(textItems)'
+            exit 0
+        fi
+        print -r -- '{"mode":"dragging","items":[]}'
+
+        """
+        try writeExample(dragging, to: url)
     }
 
     private static func writeExample(_ content: String, to url: URL) throws {

@@ -4,6 +4,7 @@ final class MenuDragView: NSView {
     var onNormal: (() -> Void)?
     var onDragging: ((NSPasteboard) -> Void)?
     var onPointerMoved: ((NSPoint) -> Void)?
+    var onPointerExited: (() -> Void)?
     var onSelect: (() -> Bool)?
     var onSelectNumber: ((Int) -> Bool)?
     var onCancel: (() -> Void)?
@@ -102,10 +103,10 @@ final class MenuDragView: NSView {
     override func draggingEntered(
         _ sender: NSDraggingInfo
     ) -> NSDragOperation {
-        state = .dragging
-
-        let pasteboard = sender.draggingPasteboard
-        onDragging?(pasteboard)
+        if state != .dragging {
+            state = .dragging
+            onDragging?(sender.draggingPasteboard)
+        }
 
         let location = convert(sender.draggingLocation, from: nil)
         onPointerMoved?(location)
@@ -130,8 +131,7 @@ final class MenuDragView: NSView {
 
     override func draggingExited(_: NSDraggingInfo?) {
         guard state != .feedback else { return }
-        state = .waiting
-        onCancel?()
+        onPointerExited?()
     }
 
     override func draggingEnded(_: NSDraggingInfo) {
