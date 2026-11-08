@@ -37,7 +37,7 @@ enum MenuWheelGeometry {
     static let outerRadius: CGFloat = 100
     static let hitInnerRadius: Double = 45
     static let hitOuterRadius: Double = 110
-    static let gapDegrees: Double = 3
+    static let gapWidth: Double = 4
 
     static func angle(for index: Int, count: Int) -> Double {
         -90 + Double(index) * 360 / Double(count)
