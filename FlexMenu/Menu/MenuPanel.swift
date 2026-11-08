@@ -156,10 +156,10 @@ final class MenuPanelController {
                     context: context
                 )
                 if result.status != 0 {
-                    Self.log("动作失败（\(item.id)）：\(result.error)")
+                    Self.log(L10n.format("动作失败（%@）：%@", item.id, result.error))
                 }
             } catch {
-                Self.log("动作失败（\(item.id)）：\(error.localizedDescription)")
+                Self.log(L10n.format("动作失败（%@）：%@", item.id, error.localizedDescription))
             }
         }
         return true
@@ -186,7 +186,7 @@ final class MenuPanelController {
 
     private func resolve(_ context: MenuContext) {
         guard let configuration else {
-            Self.log("配置未加载，请先运行 flexmenu service start")
+            Self.log(L10n.text("配置未加载，请先运行 flexmenu service start"))
             panel?.orderOut(nil)
             return
         }
@@ -226,7 +226,7 @@ final class MenuPanelController {
 
     private func failResolve(_ error: Error, request: Int) {
         guard requestID == request else { return }
-        Self.log("菜单解析失败：\(error.localizedDescription)")
+        Self.log(L10n.format("菜单解析失败：%@", error.localizedDescription))
         panel?.orderOut(nil)
     }
 

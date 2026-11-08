@@ -62,7 +62,7 @@ enum ShellProcess {
         guard let output = try String(bytes: Data(contentsOf: outputURL), encoding: .utf8),
               let error = try String(bytes: Data(contentsOf: errorURL), encoding: .utf8)
         else {
-            throw FlexMenuFailure.message("脚本输出不是 UTF-8")
+            throw FlexMenuFailure.message(L10n.text("脚本输出不是 UTF-8"))
         }
         return ShellResult(status: process.terminationStatus, output: output, error: error)
     }

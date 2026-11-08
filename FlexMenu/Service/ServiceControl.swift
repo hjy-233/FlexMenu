@@ -27,11 +27,11 @@ enum ServiceControl {
 
     static func run(_ arguments: [String]) throws {
         guard arguments.count == 1, let command = arguments.first else {
-            throw FlexMenuFailure.message("用法：flexmenu service start|restart|stop|status")
+            throw FlexMenuFailure.message(L10n.text("用法：flexmenu service start|restart|stop|status"))
         }
         switch command {
         case "start":
-            guard !isLoaded else { throw FlexMenuFailure.message("服务已经启动") }
+            guard !isLoaded else { throw FlexMenuFailure.message(L10n.text("服务已经启动")) }
             let configuration = try ConfigurationLoader.load()
             try start(with: configuration)
         case "restart":
@@ -42,8 +42,8 @@ enum ServiceControl {
             }
             try start(with: configuration)
         case "stop": try stop()
-        case "status": print(isRunning ? "服务运行中" : "服务未运行")
-        default: throw FlexMenuFailure.message("未知 service 命令：\(command)")
+        case "status": print(isRunning ? L10n.text("服务运行中") : L10n.text("服务未运行"))
+        default: throw FlexMenuFailure.message(L10n.format("未知 service 命令：%@", command))
         }
     }
 
@@ -70,7 +70,7 @@ enum ServiceControl {
     private static func start(with configuration: MenuConfiguration) throws {
         try Shortcut.validate(configuration)
         guard let executable = Bundle.main.executableURL else {
-            throw FlexMenuFailure.message("找不到 FlexMenu 可执行文件")
+            throw FlexMenuFailure.message(L10n.text("找不到 FlexMenu 可执行文件"))
         }
         try ConfigurationStore.save(configuration)
         try FileManager.default.createDirectory(
@@ -92,22 +92,22 @@ enum ServiceControl {
         try data.write(to: agentURL, options: .atomic)
         let result = try launchctl(["bootstrap", "gui/\(getuid())", agentURL.path])
         guard result.status == 0 else {
-            throw FlexMenuFailure.message("启动服务失败：\(result.error)")
+            throw FlexMenuFailure.message(L10n.format("启动服务失败：%@", result.error))
         }
         guard ServiceIPC.waitUntilReady(timeout: 5) else {
-            throw FlexMenuFailure.message("服务已启动，但命令端口未就绪")
+            throw FlexMenuFailure.message(L10n.text("服务已启动，但命令端口未就绪"))
         }
-        print("服务已启动")
+        print(L10n.text("服务已启动"))
     }
 
     private static func stop() throws {
-        guard isLoaded else { throw FlexMenuFailure.message("服务未运行") }
+        guard isLoaded else { throw FlexMenuFailure.message(L10n.text("服务未运行")) }
         let result = try launchctl(["bootout", target])
         guard result.status == 0 else {
-            throw FlexMenuFailure.message("停止服务失败：\(result.error)")
+            throw FlexMenuFailure.message(L10n.format("停止服务失败：%@", result.error))
         }
         try? FileManager.default.removeItem(at: agentURL)
-        print("服务已停止")
+        print(L10n.text("服务已停止"))
     }
 
     private static func launchctl(_ arguments: [String]) throws -> ShellResult {

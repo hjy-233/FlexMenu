@@ -26,7 +26,7 @@ struct EditorView: View {
                     model.selectScript(script)
                 }
             )) {
-                Section("菜单脚本") {
+                Section(L10n.text("菜单脚本")) {
                     ForEach(model.configuration?.menuScripts ?? [], id: \.path) { script in
                         Label(
                             URL(fileURLWithPath: script.path).lastPathComponent,
@@ -41,7 +41,7 @@ struct EditorView: View {
             if let script = model.selectedScript {
                 menuEditor(script: script, model: model)
             } else {
-                ContentUnavailableView("没有菜单脚本", systemImage: "circle.hexagongrid")
+                ContentUnavailableView(L10n.text("没有菜单脚本"), systemImage: "circle.hexagongrid")
             }
         }
         .frame(minWidth: 850, minHeight: 600)
@@ -50,7 +50,7 @@ struct EditorView: View {
                 Button {
                     showsNewMenuSheet = true
                 } label: {
-                    Label("添加菜单", systemImage: "plus.rectangle.on.folder")
+                    Label(L10n.text("添加菜单"), systemImage: "plus.rectangle.on.folder")
                 }
                 .disabled(model.isBusy || !model.serviceRunning)
 
@@ -58,7 +58,7 @@ struct EditorView: View {
                     model.toggleService()
                 } label: {
                     Label(
-                        model.serviceRunning ? "停止服务" : "启动服务",
+                        model.serviceRunning ? L10n.text("停止服务") : L10n.text("启动服务"),
                         systemImage: model.serviceRunning ? "stop.circle" : "play.circle"
                     )
                 }
@@ -67,14 +67,14 @@ struct EditorView: View {
                 Button {
                     model.reloadConfiguration()
                 } label: {
-                    Label("重新加载配置", systemImage: "arrow.clockwise")
+                    Label(L10n.text("重新加载配置"), systemImage: "arrow.clockwise")
                 }
                 .disabled(model.isBusy)
 
                 Button {
                     showsShortcutSheet = true
                 } label: {
-                    Label("快捷键", systemImage: "keyboard")
+                    Label(L10n.text("快捷键"), systemImage: "keyboard")
                 }
             }
 
@@ -83,37 +83,37 @@ struct EditorView: View {
                     Button {
                         model.refreshPreview()
                     } label: {
-                        Label("刷新当前菜单", systemImage: "arrow.triangle.2.circlepath")
+                        Label(L10n.text("刷新当前菜单"), systemImage: "arrow.triangle.2.circlepath")
                     }
                     .disabled(model.isBusy)
 
                     if selectedTab == .visual, model.visualTemplate != nil {
                         Menu {
-                            Button("添加已有动作") { model.addVisualItem() }
-                            Button("新建动作脚本…") { showsNewActionSheet = true }
+                            Button(L10n.text("添加已有动作")) { model.addVisualItem() }
+                            Button(L10n.text("新建动作脚本…")) { showsNewActionSheet = true }
                         } label: {
-                            Label("添加操作", systemImage: "plus")
+                            Label(L10n.text("添加操作"), systemImage: "plus")
                         }
                         .disabled(model.isBusy)
 
                         Button {
                             model.saveVisualMenu()
                         } label: {
-                            Label("保存菜单", systemImage: "square.and.arrow.down")
+                            Label(L10n.text("保存菜单"), systemImage: "square.and.arrow.down")
                         }
                         .disabled(model.isBusy || !model.hasUnsavedVisual)
                     } else if selectedTab == .source {
                         Button {
                             model.saveMenu()
                         } label: {
-                            Label("保存菜单脚本", systemImage: "square.and.arrow.down")
+                            Label(L10n.text("保存菜单脚本"), systemImage: "square.and.arrow.down")
                         }
                         .disabled(model.isBusy || !model.hasUnsavedSource)
                     } else if model.selectedItem != nil {
                         Button {
                             model.saveAction()
                         } label: {
-                            Label("保存动作脚本", systemImage: "square.and.arrow.down")
+                            Label(L10n.text("保存动作脚本"), systemImage: "square.and.arrow.down")
                         }
                         .disabled(model.isBusy || !model.hasUnsavedAction)
                     }
@@ -147,7 +147,7 @@ struct EditorView: View {
                 }
             }
         )) {
-            Button("好") { model.message = nil }
+            Button(L10n.text("好")) { model.message = nil }
         } message: {
             Text(model.message ?? "")
         }
@@ -161,10 +161,10 @@ struct EditorView: View {
             }
             .padding()
 
-            Picker("页面", selection: $selectedTab) {
-                Text("预览与动作").tag(EditorTab.preview)
-                Text("可视化编辑").tag(EditorTab.visual)
-                Text("源码").tag(EditorTab.source)
+            Picker(L10n.text("页面"), selection: $selectedTab) {
+                Text(L10n.text("预览与动作")).tag(EditorTab.preview)
+                Text(L10n.text("可视化编辑")).tag(EditorTab.visual)
+                Text(L10n.text("源码")).tag(EditorTab.source)
             }
             .pickerStyle(.segmented)
             .labelsHidden()
@@ -178,7 +178,7 @@ struct EditorView: View {
                     visualEditor(model: model)
                 } else {
                     VStack(alignment: .leading) {
-                        Text("菜单脚本返回 JSON，保存前会检查两种上下文的输出。")
+                        Text(L10n.text("菜单脚本返回 JSON，保存前会检查两种上下文的输出。"))
                             .foregroundStyle(.secondary)
                         TextEditor(text: $model.menuText)
                             .font(.system(.body, design: .monospaced))
@@ -197,20 +197,20 @@ private extension EditorView {
         return Group {
             if model.visualTemplate != nil {
                 VStack(alignment: .leading, spacing: 12) {
-                    Picker("适用模式", selection: $model.visualMode) {
-                        Text("普通").tag("normal")
-                        Text("拖动文件").tag("dragging")
-                        Text("不限").tag("any")
+                    Picker(L10n.text("适用模式"), selection: $model.visualMode) {
+                        Text(L10n.text("普通")).tag("normal")
+                        Text(L10n.text("拖动文件")).tag("dragging")
+                        Text(L10n.text("不限")).tag("any")
                     }
                     .frame(width: 260)
                     List {
                         ForEach($model.visualItems) { $item in
                             HStack {
-                                TextField("标识", text: $item.id)
+                                TextField(L10n.text("标识"), text: $item.id)
                                     .frame(minWidth: 100)
-                                TextField("名称", text: $item.title)
+                                TextField(L10n.text("名称"), text: $item.title)
                                     .frame(minWidth: 130)
-                                TextField("动作脚本路径", text: $item.action)
+                                TextField(L10n.text("动作脚本路径"), text: $item.action)
                                     .frame(minWidth: 180)
                                 Button {
                                     model.removeVisualItem(item.identity)
@@ -218,7 +218,7 @@ private extension EditorView {
                                     Image(systemName: "minus.circle")
                                 }
                                 .buttonStyle(.borderless)
-                                .help("删除这个操作")
+                                .help(L10n.text("删除这个操作"))
                             }
                         }
                     }
@@ -226,9 +226,9 @@ private extension EditorView {
                 .padding()
             } else {
                 ContentUnavailableView(
-                    "此脚本包含 Shell 逻辑",
+                    L10n.text("此脚本包含 Shell 逻辑"),
                     systemImage: "curlybraces",
-                    description: Text("请在“源码”页编辑；可视化保存不会覆盖动态脚本。")
+                    description: Text(L10n.text("请在“源码”页编辑；可视化保存不会覆盖动态脚本。"))
                 )
             }
         }
@@ -261,7 +261,7 @@ private extension EditorView {
             if let item = model.selectedItem {
                 VStack(alignment: .leading) {
                     Text(item.title).font(.title2)
-                    Text("动作脚本：\(item.action)")
+                    Text(L10n.format("动作脚本：%@", item.action))
                         .foregroundStyle(.secondary)
                     TextEditor(text: $model.actionText)
                         .font(.system(.body, design: .monospaced))
@@ -269,7 +269,7 @@ private extension EditorView {
                 .padding()
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
             } else {
-                ContentUnavailableView("选择一个操作查看详情", systemImage: "cursorarrow.click")
+                ContentUnavailableView(L10n.text("选择一个操作查看详情"), systemImage: "cursorarrow.click")
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
         }

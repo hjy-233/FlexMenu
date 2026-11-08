@@ -78,12 +78,12 @@ enum ConfigurationChange: Codable {
             try Shortcut.validate(configuration)
         case let .addMenu(path):
             guard !configuration.menuScripts.contains(where: { $0.path == path }) else {
-                throw FlexMenuFailure.message("重复的菜单脚本：\(path)")
+                throw FlexMenuFailure.message(L10n.format("重复的菜单脚本：%@", path))
             }
             guard FileManager.default.fileExists(
                 atPath: configuration.scriptURL(for: path).path
             ) else {
-                throw FlexMenuFailure.message("菜单脚本不存在：\(path)")
+                throw FlexMenuFailure.message(L10n.format("菜单脚本不存在：%@", path))
             }
             configuration.menuScripts.append(MenuScript(path: path))
         }
@@ -144,13 +144,13 @@ enum ConfigurationStore {
               !FileManager.default.fileExists(atPath: menuURL.path),
               !FileManager.default.fileExists(atPath: draggingURL.path)
         else {
-            throw FlexMenuFailure.message("配置文件已经存在，不会覆盖")
+            throw FlexMenuFailure.message(L10n.text("配置文件已经存在，不会覆盖"))
         }
         let action = "#!/bin/zsh\nopen -a Terminal\n"
         try writeExample(action, to: actionURL)
         let reveal = "#!/bin/zsh\nfor file in \"$@\"; do\n    open -R -- \"$file\"\ndone\n"
         try writeExample(reveal, to: revealURL)
-        let terminalTitle = "终端"
+        let terminalTitle = L10n.text("终端")
         let menu = """
         #!/bin/zsh
         cat <<'JSON'
@@ -159,7 +159,7 @@ enum ConfigurationStore {
 
         """
         try writeExample(menu, to: menuURL)
-        let revealTitle = "在 Finder 中定位"
+        let revealTitle = L10n.text("在 Finder 中定位")
         let revealItem = "{\"mode\":\"dragging\",\"items\":[{\"id\":\"reveal\"," +
             "\"title\":\"\(revealTitle)\",\"action\":\"actions/reveal.sh\"}]}"
         let dragging = """
@@ -194,7 +194,7 @@ enum ConfigurationStore {
 enum ConfigurationLoader {
     static func load(at url: URL = ConfigurationStore.scriptURL) throws -> MenuConfiguration {
         guard FileManager.default.fileExists(atPath: url.path) else {
-            throw FlexMenuFailure.message("配置不存在：\(url.path)")
+            throw FlexMenuFailure.message(L10n.format("配置不存在：%@", url.path))
         }
 
         let executable = Bundle.main.executableURL?.path ?? CommandLine.arguments[0]
@@ -217,12 +217,12 @@ enum ConfigurationLoader {
             timeout: 10
         )
         guard result.status == 0 else {
-            throw FlexMenuFailure.message("配置执行失败（状态 \(result.status)）：\(result.error)")
+            throw FlexMenuFailure.message(L10n.format("配置执行失败（状态 %d）：%@", result.status, result.error))
         }
 
         let config = try ConfigurationStore.load(at: stagedURL)
         guard !config.menuScripts.isEmpty else {
-            throw FlexMenuFailure.message("配置没有菜单脚本")
+            throw FlexMenuFailure.message(L10n.text("配置没有菜单脚本"))
         }
         try Shortcut.validate(config)
         return config

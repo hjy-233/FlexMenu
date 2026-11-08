@@ -7,10 +7,10 @@ private final class FlexMenuAppDelegate: NSObject, NSApplicationDelegate {
     func applicationShouldTerminate(_: NSApplication) -> NSApplication.TerminateReply {
         if let editorModel, editorModel.hasUnsavedMenu || editorModel.hasUnsavedAction {
             let alert = NSAlert()
-            alert.messageText = "有未保存的脚本修改"
-            alert.informativeText = "退出后将丢失这些修改。"
-            alert.addButton(withTitle: "退出并丢弃")
-            alert.addButton(withTitle: "取消")
+            alert.messageText = L10n.text("有未保存的脚本修改")
+            alert.informativeText = L10n.text("退出后将丢失这些修改。")
+            alert.addButton(withTitle: L10n.text("退出并丢弃"))
+            alert.addButton(withTitle: L10n.text("取消"))
             guard alert.runModal() == .alertFirstButtonReturn else {
                 return .terminateCancel
             }
@@ -24,7 +24,7 @@ private final class FlexMenuAppDelegate: NSObject, NSApplicationDelegate {
             } catch {
                 await MainActor.run {
                     let alert = NSAlert()
-                    alert.messageText = "无法停止 FlexMenu 服务"
+                    alert.messageText = L10n.text("无法停止 FlexMenu 服务")
                     alert.informativeText = error.localizedDescription
                     alert.runModal()
                     NSApp.reply(toApplicationShouldTerminate: false)

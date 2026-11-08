@@ -10,12 +10,12 @@ final class Shortcut {
         guard let key = configuration.shortcutKey,
               keyCodes[key.lowercased()] != nil
         else {
-            throw FlexMenuFailure.message("快捷键未配置或键名不支持")
+            throw FlexMenuFailure.message(L10n.text("快捷键未配置或键名不支持"))
         }
         guard !configuration.shortcutModifiers.isEmpty,
               configuration.shortcutModifiers.allSatisfy({ modifiers[$0] != nil })
         else {
-            throw FlexMenuFailure.message("快捷键修饰键无效")
+            throw FlexMenuFailure.message(L10n.text("快捷键修饰键无效"))
         }
     }
 
@@ -47,7 +47,7 @@ final class Shortcut {
             &handler
         )
         guard installStatus == noErr else {
-            throw FlexMenuFailure.message("无法安装快捷键事件：\(installStatus)")
+            throw FlexMenuFailure.message(L10n.format("无法安装快捷键事件：%d", installStatus))
         }
         let registerStatus = RegisterEventHotKey(
             code,
@@ -62,7 +62,7 @@ final class Shortcut {
                 RemoveEventHandler(handler)
                 self.handler = nil
             }
-            throw FlexMenuFailure.message("快捷键注册失败：\(registerStatus)")
+            throw FlexMenuFailure.message(L10n.format("快捷键注册失败：%d", registerStatus))
         }
     }
 

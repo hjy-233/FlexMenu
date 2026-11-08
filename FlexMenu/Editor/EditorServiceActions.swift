@@ -40,7 +40,7 @@ extension EditorModel {
     func reloadConfiguration() {
         guard !isBusy else { return }
         guard !hasUnsavedMenu, !hasUnsavedAction else {
-            message = "请先保存脚本，再重新加载配置"
+            message = L10n.text("请先保存脚本，再重新加载配置")
             return
         }
         isBusy = true
